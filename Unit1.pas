@@ -13,7 +13,7 @@ uses
   FMX.StdCtrls, Gorilla.Plane, Gorilla.Camera, Gorilla.Physics.Q3.Renderer,
   Gorilla.Material.Lambert, Gorilla.Physics.Q3.Body, Gorilla.Physics.Q3.Contact,
   FMX.Objects, Gorilla.Audio.FMOD, Gorilla.Audio.FMOD.Intf.Channel,
-  Gorilla.Audio.FMOD.Intf.Sound;
+  Gorilla.Audio.FMOD.Intf.Sound, Gorilla.Material.Custom, Gorilla.Physics.Types;
 
 const
   /// <summary>
@@ -113,9 +113,10 @@ type
     procedure GorillaViewport1MouseWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; var Handled: Boolean);
     procedure FormShow(Sender: TObject);
-    procedure GorillaPhysicsSystem1BeginContact(
-      const AContact: PQ3ContactConstraint; const ABodyA, ABodyB: TQ3Body);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure GorillaPhysicsSystem1BeginContact(const AContact: Pointer;
+      const AOffset, ANormal: TPoint3D; const ABodyA,
+      ABodyB: TGorillaPhysicsBody);
   protected
     FLastPos     : TPointF;
     FToggleCheck : UInt64;
@@ -313,15 +314,10 @@ begin
 end;
 
 procedure TForm1.Dummy1Render(Sender: TObject; Context: TContext3D);
-var LRender : TQ3Render;
 begin
   // Check if we want to see physics colliders
   if not SHOW_PHYSICS_COLLIDERS then
     Exit;
-
-  // Here we render physics colliders for debugging
-  LRender.Context := Context;
-  GorillaPhysicsSystem1.Engine.Render(@LRender);
 end;
 
 procedure TForm1.UnloadAudio();
@@ -544,8 +540,8 @@ begin
   end;
 end;
 
-procedure TForm1.GorillaPhysicsSystem1BeginContact(
-  const AContact: PQ3ContactConstraint; const ABodyA, ABodyB: TQ3Body);
+procedure TForm1.GorillaPhysicsSystem1BeginContact(const AContact: Pointer;
+  const AOffset, ANormal: TPoint3D; const ABodyA, ABodyB: TGorillaPhysicsBody);
 var LBodyBObj,
     LBodyAObj : TObject;
 begin
@@ -556,13 +552,13 @@ begin
     Exit;
 
   // Check for various states:
-  LBodyAObj := TObject(ABodyA.GetFirstColliderPtr()^.UserData);
-  LBodyBObj := TObject(ABodyB.GetFirstColliderPtr()^.UserData);
-  
+  LBodyAObj := TObject(TQ3Body(ABodyA).GetFirstColliderPtr()^.UserData);
+  LBodyBObj := TObject(TQ3Body(ABodyB).GetFirstColliderPtr()^.UserData);
+
   // 1) billiard table collision can be ignored
   if (LBodyAObj = BilliardTable) or (LBodyBObj = BilliardTable) then
 	Exit;
-  
+
   // 2) ball-on-ball collision for sound playback
   // This comes first, because it's the most possible case
   // both other case cannot happen, if this happened
@@ -571,12 +567,12 @@ begin
 //    Log.d('ball #%d and ball #%d collision',
 //      [TFmxObject(LBodyAObj).Tag, TFmxObject(LBodyBObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, ABodyA.LinearVelocity.Length);
-    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, ABodyB.LinearVelocity.Length);
-	
-	// stop here - both other cases are not possible
-	Exit;
-  end;  
+    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
+    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
+
+	  // stop here - both other cases are not possible
+	  Exit;
+  end;
 
   // 3) ball in hole - Body A or B is a hole
   if IsHole(LBodyAObj) then
@@ -651,7 +647,7 @@ begin
     else
       ResetBallOrigin(LBodyBObj as TGorillaSphere, FBallOrigins[TFmxObject(LBodyBObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, ABodyB.LinearVelocity.Length);
+    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
   end
   else if (LBodyBObj = Floor) then
   begin
@@ -663,7 +659,7 @@ begin
     else
       ResetBallOrigin(LBodyAObj as TGorillaSphere, FBallOrigins[TFmxObject(LBodyAObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, ABodyA.LinearVelocity.Length);
+    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
   end;
 end;
 
