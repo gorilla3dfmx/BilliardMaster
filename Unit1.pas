@@ -5,15 +5,22 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Types3D,
-  System.Math.Vectors, FMX.Controls3D, Gorilla.Light, Gorilla.Viewport,
-  Gorilla.Control, Gorilla.Transform, Gorilla.Mesh, Gorilla.Model, Gorilla.Cube,
-  Gorilla.SkyBox, Gorilla.Controller, Gorilla.Controller.Passes.Environment,
-  FMX.Objects3D, Gorilla.Physics, FMX.MaterialSources, Gorilla.Material.Default,
-  Gorilla.Material.Blinn, Gorilla.Sphere, FMX.Controls.Presentation,
-  FMX.StdCtrls, Gorilla.Plane, Gorilla.Camera, Gorilla.Physics.Q3.Renderer,
-  Gorilla.Material.Lambert, Gorilla.Physics.Q3.Body, Gorilla.Physics.Q3.Contact,
-  FMX.Objects, Gorilla.Audio.FMOD, Gorilla.Audio.FMOD.Intf.Channel,
+  System.Math.Vectors, FMX.Controls3D,
+  FMX.Objects3D, FMX.MaterialSources, FMX.Controls.Presentation, FMX.Objects,
+  FMX.StdCtrls,
+  Gorilla.Viewport, Gorilla.Light,
+  Gorilla.Transform, Gorilla.Mesh, Gorilla.Model, Gorilla.Cube,
+  Gorilla.Control, Gorilla.Controller, Gorilla.Sphere, Gorilla.SkyBox,
+  Gorilla.Plane, Gorilla.Camera, Gorilla.Controller.Passes.Environment,
+  Gorilla.Material.Default, Gorilla.Material.Lambert, Gorilla.Material.Blinn,
+  Gorilla.Physics,
+  Gorilla.Physics.Driver.Q3, Gorilla.Physics.Q3.Renderer, Gorilla.Physics.Q3.Body,
+  Gorilla.Physics.Q3.Contact,
+  Gorilla.Physics.Driver.JOLT,
+  Gorilla.Audio.Manager, Gorilla.Audio.FMOD, Gorilla.Audio.FMOD.Intf.Channel,
   Gorilla.Audio.FMOD.Intf.Sound, Gorilla.Material.Custom, Gorilla.Physics.Types;
+
+{$DEFINE VER_1_3_0_3815}
 
 const
   /// <summary>
@@ -127,8 +134,13 @@ type
     FBallImages  : Array[0..14] of TImage;
     FBallOrigins : Array[0..15] of TPoint3D;
 
+  {$IFDEF VER_1_3_0_3815}
+    FMusic       : TGorillaFMODSoundItem;
+    FClackSound  : TGorillaFMODSoundItem;
+  {$ELSE}
     FMusic       : IGorillaFMODSound;
     FClackSound  : IGorillaFMODSound;
+  {$ENDIF}
     FChannels    : Array[0..15] of IGorillaFMODChannel;
 
     /// <summary>
@@ -302,6 +314,8 @@ begin
   DeactivateState();
 
   // Activate physics
+//  GorillaPhysicsSystem1.Driver := TGorillaPhysicsDriverType.JOLTPhysics;
+//  GorillaPhysicsSystem1.RenderColliders := true;
   GorillaPhysicsSystem1.Active := true;
 
   // Activate timer: for camera adjustment and auto-toggle mode
@@ -346,6 +360,18 @@ begin
     IncludeTrailingPathDelimiter('audio');
 {$ENDIF}
 
+{$IFDEF VER_1_3_0_3815}
+  // Load the music file
+  FMusic := GorillaFMODAudioManager1.Sounds.Add() as TGorillaFMODSoundItem;
+  FMusic.FileName := LPath + 'cool-jazz-loops-2641.mp3';
+  FMusic.Loop := true;
+  FMusic.Play();
+
+  // Prepare and load the clack sound of the balls - it's not getting played
+  // already
+  FClackSound := GorillaFMODAudioManager1.Sounds.Add() as TGorillaFMODSoundItem;
+  FClackSound.FileName := LPath + '539854__za-games__billiard-ball-clack.wav';
+{$ELSE}
   // Load the music file
   FMusic := GorillaFMODAudioManager1.LoadSoundFromFile(LPath +
     'cool-jazz-loops-2641.mp3');
@@ -358,6 +384,7 @@ begin
   // already
   FClackSound := GorillaFMODAudioManager1.LoadSoundFromFile(LPath +
     '539854__za-games__billiard-ball-clack.wav');
+{$ENDIF}
 end;
 
 procedure TForm1.LockBallImage(AIndex : Integer);
@@ -431,13 +458,21 @@ begin
         begin
           if not FChannels[15].IsPlaying then
           begin
+          {$IFDEF VER_1_3_0_3815}
+            FChannels[15] := GorillaFMODAudioManager1.PlaySound(FClackSound.Reference);
+          {$ELSE}
             FChannels[15] := GorillaFMODAudioManager1.PlaySound(FClackSound);
+          {$ENDIF}
             FChannels[15].Volume := LImpulse;
           end;
         end
         else
         begin
+        {$IFDEF VER_1_3_0_3815}
+          FChannels[15] := GorillaFMODAudioManager1.PlaySound(FClackSound.Reference);
+        {$ELSE}
           FChannels[15] := GorillaFMODAudioManager1.PlaySound(FClackSound);
+        {$ENDIF}
           FChannels[15].Volume := LImpulse;
         end;
       end
@@ -448,13 +483,21 @@ begin
         begin
           if not FChannels[LTagIdx].IsPlaying then
           begin
+          {$IFDEF VER_1_3_0_3815}
+            FChannels[LTagIdx] := GorillaFMODAudioManager1.PlaySound(FClackSound.Reference);
+          {$ELSE}
             FChannels[LTagIdx] := GorillaFMODAudioManager1.PlaySound(FClackSound);
+          {$ENDIF}
             FChannels[LTagIdx].Volume := LImpulse;
           end;
         end
         else
         begin
+        {$IFDEF VER_1_3_0_3815}
+          FChannels[LTagIdx] := GorillaFMODAudioManager1.PlaySound(FClackSound.Reference);
+        {$ELSE}
           FChannels[LTagIdx] := GorillaFMODAudioManager1.PlaySound(FClackSound);
+        {$ENDIF}
           FChannels[LTagIdx].Volume := LImpulse;
         end;
       end;
@@ -474,7 +517,7 @@ begin
 
   // After it was placed at its new position, we can add a spherical collider
   // again.
-  LPrefab := TGorillaColliderSettings.Create(TQ3BodyType.eDynamicBody);
+  LPrefab := TGorillaColliderSettings.Create(TGorillaPhysicsBodyType.eDynamicBody);
   if ABall = WhiteBall then
   begin
     LPrefab.LinearDamping := 0.25;
@@ -493,7 +536,7 @@ end;
 
 function TForm1.BallsAvailable() : Boolean;
 var I : Integer;
-    LBody : TQ3Body;
+    LBody : TGorillaPhysicsBody;
 begin
   Result := true;
   for I := Low(FBalls) to High(FBalls) do
@@ -502,11 +545,21 @@ begin
     // Caution: check if body is available! Maybe ball is getting resetted, then
     // it might not have a rigid body meanwhile or when a ball is out of game
     // it also has no rigid body anymore!
-    LBody := FBalls[I].TagObject as TQ3Body;
-    if Assigned(LBody) and (TQ3BodyState.eAwake in LBody.Flags) then
+    LBody := FBalls[I].TagObject as TGorillaPhysicsBody;
+    if Assigned(LBody) then
     begin
-      Result := false;
-      Exit;
+      if (GorillaPhysicsSystem1.Driver = TGorillaPhysicsDriverType.Q3Physics)
+      and (TGorillaPhysicsBodyState.eAwake in TQ3Body(LBody).Flags) then
+      begin
+        Result := false;
+        Exit;
+      end
+      else if (GorillaPhysicsSystem1.Driver = TGorillaPhysicsDriverType.JOLTPhysics)
+      and (TGorillaPhysicsBodyState.eAwake in TGorillaJOLTPhysicsBody(LBody).Flags) then
+      begin
+        Result := false;
+        Exit;
+      end;
     end;
   end;
 end;
@@ -544,6 +597,7 @@ procedure TForm1.GorillaPhysicsSystem1BeginContact(const AContact: Pointer;
   const AOffset, ANormal: TPoint3D; const ABodyA, ABodyB: TGorillaPhysicsBody);
 var LBodyBObj,
     LBodyAObj : TObject;
+    LIsQ3Physics : Boolean;
 begin
   if not Assigned(AContact) then
     Exit;
@@ -552,8 +606,24 @@ begin
     Exit;
 
   // Check for various states:
-  LBodyAObj := TObject(TQ3Body(ABodyA).GetFirstColliderPtr()^.UserData);
-  LBodyBObj := TObject(TQ3Body(ABodyB).GetFirstColliderPtr()^.UserData);
+  if GorillaPhysicsSystem1.Driver = TGorillaPhysicsDriverType.Q3Physics then
+    LIsQ3Physics := true
+  else if GorillaPhysicsSystem1.Driver = TGorillaPhysicsDriverType.JOLTPhysics then
+    LIsQ3Physics := false
+  else
+    raise Exception.Create('unsupported physics driver type');
+
+  if LIsQ3Physics then
+  begin
+    LBodyAObj := TObject(TQ3Body(ABodyA).GetFirstColliderPtr()^.UserData);
+    LBodyBObj := TObject(TQ3Body(ABodyB).GetFirstColliderPtr()^.UserData);
+  end
+  else
+  begin
+    // JOLT Physics
+    LBodyAObj := TObject(TGorillaJOLTPhysicsBody(ABodyA).UserData);
+    LBodyBObj := TObject(TGorillaJOLTPhysicsBody(ABodyB).UserData);
+  end;
 
   // 1) billiard table collision can be ignored
   if (LBodyAObj = BilliardTable) or (LBodyBObj = BilliardTable) then
@@ -567,8 +637,16 @@ begin
 //    Log.d('ball #%d and ball #%d collision',
 //      [TFmxObject(LBodyAObj).Tag, TFmxObject(LBodyBObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
-    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
+    if LIsQ3Physics then
+    begin
+      PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
+      PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
+    end
+    else
+    begin
+//      PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TGorillaJOLTPhysicsBody(ABodyA).LinearVelocity.Length);
+//      PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TGorillaJOLTPhysicsBody(ABodyB).LinearVelocity.Length);
+    end;
 
 	  // stop here - both other cases are not possible
 	  Exit;
@@ -647,7 +725,10 @@ begin
     else
       ResetBallOrigin(LBodyBObj as TGorillaSphere, FBallOrigins[TFmxObject(LBodyBObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
+    if LIsQ3Physics then
+      PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length)
+    else
+      ; //PlayBallSound(TFmxObject(LBodyBObj).Tag - 1, TQ3Body(ABodyB).LinearVelocity.Length);
   end
   else if (LBodyBObj = Floor) then
   begin
@@ -659,7 +740,10 @@ begin
     else
       ResetBallOrigin(LBodyAObj as TGorillaSphere, FBallOrigins[TFmxObject(LBodyAObj).Tag]);
 
-    PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
+    if LIsQ3Physics then
+      PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length)
+    else
+      ; // PlayBallSound(TFmxObject(LBodyAObj).Tag - 1, TQ3Body(ABodyA).LinearVelocity.Length);
   end;
 end;
 
